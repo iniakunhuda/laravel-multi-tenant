@@ -22,3 +22,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Ignore tenant-specific storage files
+/storage/tenant_*/**/

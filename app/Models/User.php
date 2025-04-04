@@ -69,6 +69,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'tenant_id',
     ];
 
     /**
@@ -88,6 +89,7 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'password' => 'hashed',
     ];
 
     public function orders()
@@ -100,8 +102,18 @@ class User extends Authenticatable
         return $this->hasOne(Cart::class);
     }
 
+    public function tenant()
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
     public function isAdmin()
     {
         return $this->role === 'admin';
+    }
+
+    public function isTenantOwner()
+    {
+        return $this->role === 'owner';
     }
 }

@@ -99,7 +99,7 @@ return [
         /**
          * Each disk listed in the 'disks' array will be suffixed by the suffix_base, followed by the tenant_id.
          */
-        'suffix_base' => 'tenant',
+        'suffix_base' => 'tenant_',
         'disks' => [
             'local',
             'public',
@@ -178,7 +178,15 @@ return [
      * enabled. But it may be useful to disable them if you use external
      * storage (e.g. S3 / Dropbox) or have a custom asset controller.
      */
-    'routes' => true,
+    // 'routes' => true,
+    'routes' => [
+        'path' => base_path('routes/tenant.php'),
+        'middleware' => [
+            'web',
+            'universal',
+            \App\Http\Middleware\TenantMiddleware::class,
+        ],
+    ],
 
     /**
      * Parameters used by the tenants:migrate command.

@@ -41,12 +41,42 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $credentials = $this->only('email', 'password');
+        $remember = $this->boolean('remember');
+
+        // Check if we're in a tenant context
+        $isTenantContext = app()->bound('tenancy.tenant');
+        $tenantId = $isTenantContext ? tenant('id') : null;
+
+        // die(json_encode([
+        //     'isTenantContext' => $isTenantContext,
+        //     'tenantId' => $tenantId,
+        //     'credentials' => $credentials,
+        //     'remember' => $remember,
+        // ]));
+
+        if (!Auth::attempt($credentials, $remember)) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
             ]);
+        }
+
+        // If we're in a tenant context, verify the user belongs to this tenant
+        if ($isTenantContext && $tenantId) {
+            $user = Auth::user();
+
+            // If user doesn't belong to this tenant
+            // Note: You'll need to add a tenant_id column to your users table
+            // or implement your own method to check tenant association
+            if ($user->tenant_id !== $tenantId && !$user->isAdmin()) {
+                Auth::logout();
+
+                throw ValidationException::withMessages([
+                    'email' => 'You do not have access to this store.',
+                ]);
+            }
         }
 
         RateLimiter::clear($this->throttleKey());
