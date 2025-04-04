@@ -1,10 +1,10 @@
 <?php
 
-use App\Http\Controllers\Tenant\ProductController;
-use App\Http\Controllers\Tenant\CategoryController;
-use App\Http\Controllers\Tenant\CustomerController;
-use App\Http\Controllers\Tenant\OrderController;
-use App\Http\Controllers\Tenant\StoreStatsController;
+use App\Http\Controllers\Tenant\Manage\ProductController;
+use App\Http\Controllers\Tenant\Manage\CategoryController;
+use App\Http\Controllers\Tenant\Manage\CustomerController;
+use App\Http\Controllers\Tenant\Manage\OrderController;
+use App\Http\Controllers\Tenant\Manage\StoreStatsController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->group(function () {

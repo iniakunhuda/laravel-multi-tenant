@@ -1,11 +1,12 @@
 <?php
 
-namespace App\Http\Controllers\Tenant;
+namespace App\Http\Controllers\Tenant\Manage;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Order;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class CustomerController extends Controller
@@ -115,7 +116,7 @@ class CustomerController extends Controller
      */
     private function getFrequentlyPurchasedProducts($customerId)
     {
-        return \DB::table('order_items')
+        return DB::table('order_items')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->select(
@@ -123,7 +124,7 @@ class CustomerController extends Controller
                 'products.name',
                 'products.price',
                 'products.slug',
-                \DB::raw('SUM(order_items.quantity) as total_quantity')
+                DB::raw('SUM(order_items.quantity) as total_quantity')
             )
             ->where('orders.user_id', $customerId)
             ->groupBy('products.id', 'products.name', 'products.price', 'products.slug')

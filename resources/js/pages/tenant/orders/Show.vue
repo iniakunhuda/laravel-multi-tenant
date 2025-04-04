@@ -71,9 +71,9 @@
                     <h3 class="text-sm font-medium text-gray-700 mb-2">Update Order Status</h3>
                     <div class="flex items-end gap-4">
                       <div class="flex-grow">
-                        <Select
+                        <select
                           v-model="selectedStatus"
-                          class="w-full"
+                          class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                         >
                           <option
                             v-for="status in statusOptions"
@@ -82,7 +82,7 @@
                           >
                             {{ status.label }}
                           </option>
-                        </Select>
+                        </select>
                       </div>
                       <Button
                         @click="updateOrderStatus"
@@ -91,6 +91,9 @@
                         Update
                       </Button>
                     </div>
+                    <p v-if="orderStatusMessage" class="mt-2 text-sm" :class="messageClass">
+                      {{ orderStatusMessage }}
+                    </p>
                   </div>
 
                   <!-- Payment Status -->
@@ -98,9 +101,9 @@
                     <h3 class="text-sm font-medium text-gray-700 mb-2">Update Payment Status</h3>
                     <div class="flex items-end gap-4">
                       <div class="flex-grow">
-                        <Select
+                        <select
                           v-model="selectedPaymentStatus"
-                          class="w-full"
+                          class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                         >
                           <option
                             v-for="status in paymentStatusOptions"
@@ -109,7 +112,7 @@
                           >
                             {{ status.label }}
                           </option>
-                        </Select>
+                        </select>
                       </div>
                       <Button
                         @click="updatePaymentStatus"
@@ -118,6 +121,9 @@
                         Update
                       </Button>
                     </div>
+                    <p v-if="paymentStatusMessage" class="mt-2 text-sm" :class="paymentMessageClass">
+                      {{ paymentStatusMessage }}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -274,7 +280,7 @@
                         </div>
                       </li>
                       <li v-if="order.status === 'completed'">
-                        <div class="relative">
+                        <div class="relative pb-8">
                           <div class="relative flex space-x-3">
                             <div>
                               <span class="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center ring-8 ring-white">
@@ -293,7 +299,7 @@
                         </div>
                       </li>
                       <li v-if="order.status === 'cancelled'">
-                        <div class="relative">
+                        <div class="relative pb-8">
                           <div class="relative flex space-x-3">
                             <div>
                               <span class="h-8 w-8 rounded-full bg-red-500 flex items-center justify-center ring-8 ring-white">
@@ -458,6 +464,10 @@
   // State
   const selectedStatus = ref(props.order.status);
   const selectedPaymentStatus = ref(props.order.payment_status);
+  const orderStatusMessage = ref('');
+  const paymentStatusMessage = ref('');
+  const messageClass = ref('');
+  const paymentMessageClass = ref('');
 
   // Methods
   function formatDate(dateString) {
@@ -515,16 +525,74 @@
   function updateOrderStatus() {
     if (selectedStatus.value === props.order.status) return;
 
+    // Reset previous message
+    orderStatusMessage.value = '';
+
     router.post(route('order.update-status', props.order.id), {
       status: selectedStatus.value
+    }, {
+      preserveScroll: true,
+      onSuccess: () => {
+        // Update local state
+        props.order.status = selectedStatus.value;
+
+        // Show success message
+        orderStatusMessage.value = 'Order status updated successfully';
+        messageClass.value = 'text-green-600';
+
+        // Clear message after 3 seconds
+        setTimeout(() => {
+          orderStatusMessage.value = '';
+        }, 3000);
+      },
+      onError: (errors) => {
+        console.error('Failed to update order status', errors);
+
+        // Show error message and revert selection
+        orderStatusMessage.value = 'Failed to update order status';
+        messageClass.value = 'text-red-600';
+        selectedStatus.value = props.order.status;
+      }
     });
   }
 
   function updatePaymentStatus() {
     if (selectedPaymentStatus.value === props.order.payment_status) return;
 
+    // Reset previous message
+    paymentStatusMessage.value = '';
+
     router.post(route('order.update-payment-status', props.order.id), {
       payment_status: selectedPaymentStatus.value
+    }, {
+      preserveScroll: true,
+      onSuccess: () => {
+        // Update local state
+        const previousStatus = props.order.payment_status;
+        props.order.payment_status = selectedPaymentStatus.value;
+
+        // If status changed to paid and wasn't paid before, update paid_at date
+        if (selectedPaymentStatus.value === 'paid' && previousStatus !== 'paid' && !props.order.paid_at) {
+          props.order.paid_at = new Date().toISOString();
+        }
+
+        // Show success message
+        paymentStatusMessage.value = 'Payment status updated successfully';
+        paymentMessageClass.value = 'text-green-600';
+
+        // Clear message after 3 seconds
+        setTimeout(() => {
+          paymentStatusMessage.value = '';
+        }, 3000);
+      },
+      onError: (errors) => {
+        console.error('Failed to update payment status', errors);
+
+        // Show error message and revert selection
+        paymentStatusMessage.value = 'Failed to update payment status';
+        paymentMessageClass.value = 'text-red-600';
+        selectedPaymentStatus.value = props.order.payment_status;
+      }
     });
   }
 

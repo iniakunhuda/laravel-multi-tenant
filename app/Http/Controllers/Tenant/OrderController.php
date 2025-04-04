@@ -3,244 +3,214 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Models\Cart;
 use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class OrderController extends Controller
 {
     /**
-     * Display a listing of the orders.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Inertia\Response
+     * Display the checkout page
      */
-    public function index(Request $request)
+    public function checkout(Request $request)
     {
-        $query = Order::with(['user', 'items.product']);
+        // Get the cart for the current user or session
+        $cart = $this->getCart($request);
 
-        // Apply search if provided
-        if ($request->has('search') && !empty($request->search)) {
-            $searchTerm = $request->search;
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('order_number', 'like', "%{$searchTerm}%")
-                  ->orWhere('billing_name', 'like', "%{$searchTerm}%")
-                  ->orWhere('billing_email', 'like', "%{$searchTerm}%")
-                  ->orWhere('billing_phone', 'like', "%{$searchTerm}%");
-            });
+        // Load cart with items and product details
+        $cart->load(['items.product.images']);
+
+        // Check if cart is empty
+        if ($cart->items->isEmpty()) {
+            return redirect()->route('cart.index')->with('error', 'Your cart is empty. Add items before checkout.');
         }
 
-        // Apply status filter if provided
-        if ($request->has('status') && !empty($request->status)) {
-            $query->where('status', $request->status);
-        }
-
-        // Apply payment status filter if provided
-        if ($request->has('payment_status') && !empty($request->payment_status)) {
-            $query->where('payment_status', $request->payment_status);
-        }
-
-        // Apply date range filter if provided
-        if ($request->has('date_from') && !empty($request->date_from)) {
-            $query->whereDate('created_at', '>=', $request->date_from);
-        }
-
-        if ($request->has('date_to') && !empty($request->date_to)) {
-            $query->whereDate('created_at', '<=', $request->date_to);
-        }
-
-        // Apply sorting
-        $sortColumn = $request->input('sort', 'created_at');
-        $sortDirection = $request->input('direction', 'desc');
-
-        // Validate sort column to prevent SQL injection
-        $allowedSortColumns = ['order_number', 'total', 'status', 'created_at', 'payment_status'];
-        if (!in_array($sortColumn, $allowedSortColumns)) {
-            $sortColumn = 'created_at';
-        }
-
-        $query->orderBy($sortColumn, $sortDirection);
-
-        // Execute query with pagination
-        $orders = $query->paginate(10)
-            ->withQueryString();
-
-        return Inertia::render('tenant/orders/Index', [
-            'orders' => $orders,
-            'filters' => [
-                'search' => $request->search,
-                'status' => $request->status,
-                'payment_status' => $request->payment_status,
-                'date_from' => $request->date_from,
-                'date_to' => $request->date_to,
-                'sort' => $sortColumn,
-                'direction' => $sortDirection,
-            ],
-            'statusOptions' => $this->getStatusOptions(),
-            'paymentStatusOptions' => $this->getPaymentStatusOptions(),
+        return Inertia::render('tenant/Payment', [
+            'cart' => $cart,
+            'cartItems' => $cart->items,
+            'user' => Auth::user()
         ]);
     }
 
     /**
-     * Display the specified order.
-     *
-     * @param  \App\Models\Order  $order
-     * @return \Inertia\Response
+     * Store a new order
      */
-    public function show(Order $order)
+    public function store(Request $request)
     {
-        $order->load(['user', 'items.product']);
+        // Validate order data
+        $request->validate([
+            'billing_name' => 'required|string|max:255',
+            'billing_email' => 'required|email|max:255',
+            'billing_phone' => 'required|string|max:30',
+            'billing_address' => 'required|string|max:255',
+            'billing_city' => 'required|string|max:100',
+            'billing_state' => 'required|string|max:100',
+            'billing_country' => 'required|string|max:100',
+            'billing_zipcode' => 'required|string|max:20',
+            'shipping_name' => 'required|string|max:255',
+            'shipping_address' => 'required|string|max:255',
+            'shipping_city' => 'required|string|max:100',
+            'shipping_state' => 'required|string|max:100',
+            'shipping_country' => 'required|string|max:100',
+            'shipping_zipcode' => 'required|string|max:20',
+            'payment_method' => 'required|in:Bank Transfer,paypal',
+            'notes' => 'nullable|string|max:1000',
+        ]);
 
-        return Inertia::render('tenant/orders/Show', [
+        // Get the cart
+        $cart = $this->getCart($request);
+        $cart->load('items.product');
+
+        // Check if cart is empty
+        if ($cart->items->isEmpty()) {
+            return redirect()->route('cart.index')->with('error', 'Your cart is empty. Add items before checkout.');
+        }
+
+        // Verify product inventory
+        foreach ($cart->items as $item) {
+            if ($item->quantity > $item->product->stock) {
+                return redirect()->route('cart.index')->with('error', "Not enough stock for {$item->product->name}. Available: {$item->product->stock}");
+            }
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Calculate order total
+            $subtotal = 0;
+            foreach ($cart->items as $item) {
+                $subtotal += $item->price * $item->quantity;
+            }
+
+            // Apply taxes and shipping (simplified)
+            $taxRate = 0.08; // 8%
+            $shippingCost = 10.00;
+            $taxAmount = $subtotal * $taxRate;
+            $total = $subtotal + $taxAmount + $shippingCost;
+
+            // Generate a unique order number
+            $orderNumber = 'INV-' . date('Ymd') . '-' . uniqid();
+
+            // Create the order
+            $order = Order::create([
+                'order_number' => $orderNumber,
+                'user_id' => Auth::id(),
+                'total' => $total,
+                'status' => 'pending',
+                'notes' => $request->notes,
+                'billing_name' => $request->billing_name,
+                'billing_email' => $request->billing_email,
+                'billing_phone' => $request->billing_phone,
+                'billing_address' => $request->billing_address,
+                'billing_city' => $request->billing_city,
+                'billing_state' => $request->billing_state,
+                'billing_country' => $request->billing_country,
+                'billing_zipcode' => $request->billing_zipcode,
+                'shipping_name' => $request->shipping_name,
+                'shipping_address' => $request->shipping_address,
+                'shipping_city' => $request->shipping_city,
+                'shipping_state' => $request->shipping_state,
+                'shipping_country' => $request->shipping_country,
+                'shipping_zipcode' => $request->shipping_zipcode,
+                'payment_method' => $request->payment_method,
+                'payment_status' => 'pending',
+            ]);
+
+            // Create order items and update inventory
+            foreach ($cart->items as $item) {
+                // Create order item
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product->name,
+                    'quantity' => $item->quantity,
+                    'price' => $item->price,
+                    'subtotal' => $item->price * $item->quantity,
+                ]);
+
+                // Update product inventory
+                $product = $item->product;
+                $product->stock -= $item->quantity;
+                $product->save();
+            }
+
+            // Clear the cart
+            $cart->items()->delete();
+
+            // If using PayPal, we would redirect to PayPal here
+            // For this example, we'll just redirect to order confirmation
+
+            DB::commit();
+
+            return redirect()->route('orders.confirmation', $order->id)
+                ->with('success', 'Your order has been placed successfully!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'An error occurred while processing your order: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Display the order confirmation page
+     */
+    public function confirmation(Order $order)
+    {
+        // Check if the order belongs to the current user
+        if (Auth::id() && $order->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        // Load order items with products
+        $order->load('items.product');
+
+        return Inertia::render('tenant/OrderConfirmation', [
             'order' => $order,
-            'statusOptions' => $this->getStatusOptions(),
-            'paymentStatusOptions' => $this->getPaymentStatusOptions(),
+            'orderItems' => $order->items
         ]);
     }
 
     /**
-     * Update the status of the specified order.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Order  $order
-     * @return \Illuminate\Http\RedirectResponse
+     * Get or create a cart for the current user or session
      */
-    public function updateStatus(Request $request, Order $order)
+    private function getCart(Request $request)
     {
-        $request->validate([
-            'status' => 'required|string|in:pending,processing,completed,cancelled',
-        ]);
+        if (Auth::check()) {
+            // Get cart for authenticated user
+            $cart = Cart::where('user_id', Auth::id())->first();
 
-        $order->update([
-            'status' => $request->status,
-        ]);
+            if (!$cart) {
+                // Create a new cart if the user doesn't have one
+                $cart = Cart::create([
+                    'user_id' => Auth::id()
+                ]);
+            }
 
-        return redirect()->back()
-            ->with('success', 'Order status updated successfully');
-    }
+            return $cart;
+        } else {
+            // For guest users, get or create cart by session ID
+            if (!$request->session()->has('session_id')) {
+                $sessionId = uniqid('session_', true);
+                $request->session()->put('session_id', $sessionId);
+            } else {
+                $sessionId = $request->session()->get('session_id');
+            }
 
-    /**
-     * Update the payment status of the specified order.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Order  $order
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function updatePaymentStatus(Request $request, Order $order)
-    {
-        $request->validate([
-            'payment_status' => 'required|string|in:pending,paid,failed,refunded',
-        ]);
+            $cart = Cart::where('session_id', $sessionId)->first();
 
-        $order->update([
-            'payment_status' => $request->payment_status,
-            'paid_at' => $request->payment_status === 'paid' ? now() : $order->paid_at,
-        ]);
+            if (!$cart) {
+                // Create a new cart for the session
+                $cart = Cart::create([
+                    'session_id' => $sessionId
+                ]);
+            }
 
-        return redirect()->back()
-            ->with('success', 'Payment status updated successfully');
-    }
-
-    /**
-     * Get the available order status options.
-     *
-     * @return array
-     */
-    private function getStatusOptions()
-    {
-        return [
-            ['value' => 'pending', 'label' => 'Pending'],
-            ['value' => 'processing', 'label' => 'Processing'],
-            ['value' => 'completed', 'label' => 'Completed'],
-            ['value' => 'cancelled', 'label' => 'Cancelled'],
-        ];
-    }
-
-    /**
-     * Get the available payment status options.
-     *
-     * @return array
-     */
-    private function getPaymentStatusOptions()
-    {
-        return [
-            ['value' => 'pending', 'label' => 'Pending'],
-            ['value' => 'paid', 'label' => 'Paid'],
-            ['value' => 'failed', 'label' => 'Failed'],
-            ['value' => 'refunded', 'label' => 'Refunded'],
-        ];
-    }
-
-    /**
-     * Get order statistics for the dashboard.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function getDashboardStats()
-    {
-        // Get current date and relevant date ranges for comparisons
-        $now = now();
-        $weekStart = $now->copy()->startOfWeek();
-        $weekEnd = $now->copy()->endOfWeek();
-        $lastWeekStart = $now->copy()->subWeek()->startOfWeek();
-        $lastWeekEnd = $now->copy()->subWeek()->endOfWeek();
-
-        // This week's orders
-        $thisWeekOrders = Order::whereBetween('created_at', [$weekStart, $weekEnd])->get();
-        $thisWeekCount = $thisWeekOrders->count();
-        $thisWeekRevenue = $thisWeekOrders->sum('total');
-
-        // Last week's orders for comparison
-        $lastWeekOrders = Order::whereBetween('created_at', [$lastWeekStart, $lastWeekEnd])->get();
-        $lastWeekCount = $lastWeekOrders->count();
-        $lastWeekRevenue = $lastWeekOrders->sum('total');
-
-        // Calculate trends (percentage change)
-        $ordersTrend = $lastWeekCount > 0
-            ? round((($thisWeekCount - $lastWeekCount) / $lastWeekCount) * 100, 1)
-            : 0;
-
-        $revenueTrend = $lastWeekRevenue > 0
-            ? round((($thisWeekRevenue - $lastWeekRevenue) / $lastWeekRevenue) * 100, 1)
-            : 0;
-
-        // Get total orders and revenue
-        $totalOrders = Order::count();
-        $totalRevenue = Order::sum('total');
-
-        // Get pending orders count
-        $pendingOrders = Order::where('status', 'pending')->count();
-
-        // Calculate average order value
-        $aov = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;
-
-        // Calculate AOV trend
-        $thisWeekAOV = $thisWeekCount > 0 ? $thisWeekRevenue / $thisWeekCount : 0;
-        $lastWeekAOV = $lastWeekCount > 0 ? $lastWeekRevenue / $lastWeekCount : 0;
-        $aovTrend = $lastWeekAOV > 0
-            ? round((($thisWeekAOV - $lastWeekAOV) / $lastWeekAOV) * 100, 1)
-            : 0;
-
-        // Get recent orders for display
-        $recentOrders = Order::with(['user'])
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get();
-
-        return response()->json([
-            'stats' => [
-                'totalOrders' => $totalOrders,
-                'totalRevenue' => $totalRevenue,
-                'pendingOrders' => $pendingOrders,
-                'averageOrderValue' => $aov,
-                'ordersTrend' => $ordersTrend,
-                'revenueTrend' => $revenueTrend,
-                'aovTrend' => $aovTrend,
-            ],
-            'recentOrders' => $recentOrders,
-            'statusOptions' => $this->getStatusOptions(),
-            'paymentStatusOptions' => $this->getPaymentStatusOptions(),
-        ]);
+            return $cart;
+        }
     }
 }

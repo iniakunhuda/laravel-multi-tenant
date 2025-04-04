@@ -146,6 +146,11 @@ onMounted(async () => {
               <p class="mt-1 text-sm text-gray-600">
                 New this week: <span class="font-semibold">{{ storeStats.newCustomers }}</span>
               </p>
+              <div class="mt-4">
+                <Link :href="route('customer.index')" class="text-sm text-indigo-600 hover:text-indigo-900">
+                  Manage Customers →
+                </Link>
+              </div>
             </div>
           </div>
         </div>
