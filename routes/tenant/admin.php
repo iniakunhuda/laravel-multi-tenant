@@ -1,12 +1,17 @@
 <?php
 
-use App\Http\Controllers\Tenant\CategoryController;
 use App\Http\Controllers\Tenant\ProductController;
+use App\Http\Controllers\Tenant\CategoryController;
+use App\Http\Controllers\Tenant\CustomerController;
+use App\Http\Controllers\Tenant\OrderController;
+use App\Http\Controllers\Tenant\StoreStatsController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->group(function () {
-    Route::group(['prefix'=> 'manage'], function() {
 
+    Route::get('/store/stats', [StoreStatsController::class, 'getStats'])->name('store.stats');
+
+    Route::group(['prefix'=> 'manage'], function() {
         // Product Routes
         Route::group(['prefix' => 'product'], function () {
             Route::get('/', [ProductController::class, 'index'])->name('product.index');
@@ -18,7 +23,6 @@ Route::middleware('auth')->group(function () {
             Route::delete('/{product}', [ProductController::class, 'destroy'])->name('product.destroy');
         });
 
-
         // Category Routes
         Route::group(['prefix' => 'category'], function () {
             Route::get('/', [CategoryController::class, 'index'])->name('category.index');
@@ -28,6 +32,21 @@ Route::middleware('auth')->group(function () {
             Route::get('/{category}/edit', [CategoryController::class, 'edit'])->name('category.edit');
             Route::post('/{category}/edit', [CategoryController::class, 'update'])->name('category.update');
             Route::delete('/{category}', [CategoryController::class, 'destroy'])->name('category.destroy');
+        });
+
+        // Order Routes
+        Route::group(['prefix' => 'order'], function () {
+            Route::get('/dashboard-stats', [OrderController::class, 'getDashboardStats'])->name('order.dashboard-stats');
+            Route::get('/', [OrderController::class, 'index'])->name('order.index');
+            Route::get('/{order}', [OrderController::class, 'show'])->name('order.show');
+            Route::post('/{order}/status', [OrderController::class, 'updateStatus'])->name('order.update-status');
+            Route::post('/{order}/payment-status', [OrderController::class, 'updatePaymentStatus'])->name('order.update-payment-status');
+        });
+
+        // Customer Routes
+        Route::group(['prefix' => 'customer'], function () {
+            Route::get('/', [CustomerController::class, 'index'])->name('customer.index');
+            Route::get('/{customer}', [CustomerController::class, 'show'])->name('customer.show');
         });
     });
 });
