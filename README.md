@@ -29,7 +29,7 @@ The platform uses:
 ### Tenant 1
 Focus on electronics and fashion products
 
-URL: tenant1.localhost.com
+URL: tenant1.localhost:8000
 
 
 ![Home](./docs/Home1.png)
@@ -47,7 +47,7 @@ Admin - Order Detail
 ### Tenant 2
 Focus on food and grocery products
 
-URL: tenant2.localhost.com
+URL: tenant2.localhost:8000
 
 ![Home](./docs/Home2.png)
 Homepage
