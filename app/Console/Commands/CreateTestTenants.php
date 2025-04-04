@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Tenant;
-use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Artisan;
 
 class CreateTestTenants extends Command
 {
@@ -20,7 +20,7 @@ class CreateTestTenants extends Command
      *
      * @var string
      */
-    protected $description = 'Create test tenants with users for development';
+    protected $description = 'Create and seed test tenants';
 
     /**
      * Execute the console command.
@@ -31,52 +31,53 @@ class CreateTestTenants extends Command
     {
         $this->info('Creating test tenants...');
 
-        // Create first tenant
+        // Tenant 1 - Electronics, Clothing, Home & Kitchen Store
         $tenant1 = Tenant::create([
             'id' => 'tenant1',
-            'name' => 'Demo Store tenant1',
-            'email' => 'info@tenant1.com'
+            'name' => 'Electronics Store',
+            'email' => 'admin@tenant1.com',
+            'data' => [
+                'type' => 'electronics',
+                'description' => 'Store selling electronics, clothing, and home goods'
+            ]
         ]);
-        $tenant1->domains()->create(['domain' => 'tenant1.localhost']);
-        $this->info('Created tenant: tenant1 with domain tenant1.localhost');
 
-        // Create second tenant
+        $tenant1->domains()->create(['domain' => 'tenant1.localhost']);
+
+        // Tenant 2 - Food Store
         $tenant2 = Tenant::create([
             'id' => 'tenant2',
-            'name' => 'Demo Store tenant2',
-            'email' => 'info@tenant2.com'
+            'name' => 'Food Store',
+            'email' => 'admin@tenant2.com',
+            'data' => [
+                'type' => 'food',
+                'description' => 'Store selling groceries and food products'
+            ]
         ]);
+
         $tenant2->domains()->create(['domain' => 'tenant2.localhost']);
-        $this->info('Created tenant: tenant2 with domain tenant2.localhost');
 
-        // Create users inside each tenant's database
-        $this->info('Creating users for each tenant...');
+        $this->info('Tenants created successfully!');
 
-        Tenant::all()->runForEach(function ($tenant) {
-            $this->info("Creating user for tenant: {$tenant->id}");
+        // Seed tenant 1 with electronics data
+        $this->info('Seeding Tenant 1 (Electronics Store)...');
+        tenancy()->initialize($tenant1);
+        Artisan::call('db:seed', [
+            '--class' => 'Database\Seeders\TenantDatabaseSeeder'
+        ]);
+        $this->info(Artisan::output());
+        tenancy()->end();
 
-            // Initialize tenancy to switch to tenant database
-            tenancy()->initialize($tenant);
+        // Seed tenant 2 with food data
+        $this->info('Seeding Tenant 2 (Food Store)...');
+        tenancy()->initialize($tenant2);
+        Artisan::call('db:seed', [
+            '--class' => 'Database\Seeders\FoodDatabaseSeeder'
+        ]);
+        $this->info(Artisan::output());
+        tenancy()->end();
 
-            // Create a user using factory
-            User::factory()->create([
-                'email' => "admin@{$tenant->id}.com",
-                'name' => "Admin {$tenant->id}",
-                'role' => 'admin'
-            ]);
-
-            // Create a regular customer user
-            User::factory()->create([
-                'email' => "customer@{$tenant->id}.com",
-                'name' => "Customer {$tenant->id}",
-                'role' => 'customer'
-            ]);
-
-            // End tenancy context
-            tenancy()->end();
-        });
-
-        $this->info('Test tenants created successfully!');
+        $this->info('All tenants seeded successfully!');
 
         return Command::SUCCESS;
     }
