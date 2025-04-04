@@ -14,7 +14,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     use HasFactory, HasDatabase, HasDomains;
 
     protected $fillable = [
-        'id', 'name', 'email', 'logo', 'is_active', 'data'
+        'id', 'name', 'email', 'is_active', 'data'
     ];
 
     public static function getCustomColumns(): array
@@ -23,7 +23,6 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'id',
             'name',
             'email',
-            'logo',
             'is_active',
             'data',
         ];
