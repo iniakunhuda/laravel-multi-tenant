@@ -16,55 +16,137 @@
 
 ## Introduction
 
-This multi-tenant eCommerce platform is built with Laravel and Vue.js, providing isolated storefronts for multiple merchants. Each tenant (store) has its own dedicated database for complete data isolation while sharing the same application codebase.
+A robust multi-tenant eCommerce platform built with Laravel and Vue.js using a multi-database tenancy architecture. This application provides strict data isolation between tenants (stores) by using separate databases for each tenant.
 
-The platform uses:
-- **Laravel** as the backend framework
-- **Vue.js with Inertia.js** for the frontend
-- **stancl/tenancy** package for multi-database tenancy
-- **Multi-database architecture** for strict data isolation
+### Features
+
+- **Multi-Database Tenancy**: Each store operates with its own dedicated database for maximum data isolation
+- **User Authentication**: Tenant-specific user authentication and role-based authorization
+- **Product Management**: Complete CRUD operations for products within each tenant store
+- **Shopping Cart**: Fully-featured shopping cart system with session management
+- **Order Processing**: End-to-end order management from checkout to fulfillment
+- **Responsive UI**: Modern interface built with Vue.js and Inertia
+
+### Technologies Used
+
+- **Backend**: Laravel, PHP 8.x
+- **Frontend**: Vue.js, Inertia.js
+- **Multi-Tenancy**: stancl/tenancy package
+- **Styling**: Tailwind CSS
+- **Database**: MySQL (configurable)
+
+### Prerequisites
+
+- PHP 8.1+
+- Composer
+- Node.js & NPM
+- MySQL
+
+### Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/iniakunhuda/laravel-multi-tenant.git
+cd multi-tenant-ecommerce
+```
+
+2. Install PHP dependencies
+```bash
+composer install
+```
+
+3. Install JavaScript dependencies
+```bash
+npm install
+```
+
+4. Copy environment file and configure database settings
+```bash
+cp .env.example .env
+```
+
+5. Generate application key
+```bash
+php artisan key:generate
+```
+
+6. Run migrations for the central database
+```bash
+php artisan migrate
+```
+
+7. Create test tenants
+```bash
+php artisan tenants:create-test
+```
+
+8. Seed tenant databases (optional)
+```bash
+php artisan tenants:seed
+```
+
+8. Compile assets
+```bash
+npm run dev
+```
+
+9.  Start the development server
+```bash
+php artisan serve
+```
+
+10.  Running test (optional)
+```bash
+php artisan test
+```
 
 ## Screenshots
 
-### Tenant 1
-Focus on electronics and fashion products
+<table>
+  <tr>
+    <th colspan="2">Tenant 1 (Electronics & Fashion) <br> http://tenant1.localhost:8000</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="./docs/Home1.png" alt="Tenant 1 Homepage"><br><strong>Homepage</strong></td>
+    <td width="50%"><img src="./docs/Dashboard.png" alt="Admin Dashboard"><br><strong>Admin Dashboard</strong></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="./docs/Product1.png" alt="Admin Product List"><br><strong>Admin Product List</strong></td>
+    <td width="50%"><img src="./docs/Order1.png" alt="Admin Order Detail"><br><strong>Admin Order Detail</strong></td>
+  </tr>
+  <tr>
+    <th colspan="2">Tenant 2 (Food & Grocery) <br> http://tenant2.localhost:8000</th>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="./docs/Home2.png" alt="Tenant 2 Homepage"><br><strong>Homepage</strong></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="./docs/Detail2.png" alt="Product Detail"><br><strong>Product Detail</strong></td>
+    <td width="50%"><img src="./docs/ShoppingCart2.png" alt="Shopping Cart"><br><strong>Shopping Cart</strong></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="./docs/Checkout2.png" alt="Checkout Page"><br><strong>Checkout Page</strong></td>
+    <td width="50%"><img src="./docs/Success2.png" alt="Success Checkout"><br><strong>Successful Checkout</strong></td>
+  </tr>
+</table>
 
-URL: tenant1.localhost:8000
+## Usage
 
+### Accessing Tenant Stores
 
-![Home](./docs/Home1.png)
-Homepage
+Each tenant store is accessible through its own domain:
 
-![Dashboard](./docs/Dashboard.png)
-Admin - Dashboard
+- Tenant 1: http://tenant1.localhost:8000
+- Tenant 2: http://tenant2.localhost:8000
 
-![Product1](./docs/Product1.png)
-Admin - Product List
+### Administrator Access
 
-![Order1](./docs/Order1.png)
-Admin - Order Detail
+Admin users can access the dashboard by logging in at:
+http://[tenant-domain]/login
 
-### Tenant 2
-Focus on food and grocery products
-
-URL: tenant2.localhost:8000
-
-![Home](./docs/Home2.png)
-Homepage
-
-![Detail](./docs/Detail2.png)
-Product Detail
-
-![Shopping Cart](./docs/ShoppingCart2.png)
-Shopping Cart
-
-
-![Checkout](./docs/Checkout2.png)
-Checkout
-
-
-![Success Checkout](./docs/Success2.png)
-Success Checkout
+Default admin credentials:
+- Email: admin@example.com
+- Password: password
 
 
 ## Architecture Overview
