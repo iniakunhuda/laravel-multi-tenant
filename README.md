@@ -1,4 +1,4 @@
-# Multi-Tenant eCommerce Platform Documentation
+# Multi-Tenant eCommerce Platform
 
 ## Table of Contents
 1. [Introduction](#introduction)
