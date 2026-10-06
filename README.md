@@ -16,7 +16,7 @@
 
 ## Introduction
 
-A robust multi-tenant eCommerce platform built with Laravel and Vue.js using a multi-database tenancy architecture. This application provides strict data isolation between tenants (stores) by using separate databases for each tenant.
+A robust multi-tenant eCommerce platform built with Laravel and Vue.js using a multi-database tenancy architecture. This application provides strict data isolation between tenants (stores) by using separate databases for each tenant. Easy to follow and try in your local.
 
 ### Features
 
